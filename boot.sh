@@ -6,6 +6,8 @@ cp .example.env .env
 echo ""
 echo "clonning assectra rep"
 git clone git@github.com:lschedel/assectra.git ../assectra
+echo "clonning trader rep"
+git clone git@github.com:lschedel/trader.git ../trader
 echo ""
 
 echo ""

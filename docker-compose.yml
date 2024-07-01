@@ -26,6 +26,27 @@ services:
     environment:
       PMA_PORT: ${HOST_MACHINE_PMA_PORT_ASSECTRA}
 
+  trader:
+    build:
+      context: ./bin/${PHPVERSION_TRADER}
+    container_name: "${COMPOSE_PROJECT_NAME}${PHPNAME_TRADER}"
+    restart: unless-stopped
+    tty: true
+    networks:
+      - docker.network
+    ports:
+      - "${HOST_MACHINE_UNSECURE_HOST_PORT_TRADER}:83"
+      - "${HOST_MACHINE_SECURE_HOST_PORT_TRADER}:446"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT_TRADER}:/var/www/webroot/ROOT/
+      - ${PHP_INI_TRADER-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${VHOSTS_DIR_TRADER-./config/vhosts}:/etc/apache2/sites-enabled
+      - ${LOG_DIR_TRADER-./logs/apache2}:/var/log/apache2
+    environment:
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT_TRADER}
+
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     restart: unless-stopped
