@@ -1,51 +1,60 @@
 version: "3.7"
 
 networks:
-  docker.network:
+  docker_network:
     driver: bridge
+
+volumes:
+  mysql_data:
+  mysql_logs:
+  apache_logs_assectra:
+  apache_logs_trader:
+
+x-common-php: &common-php
+  restart: unless-stopped
+  tty: true
+  networks:
+    - docker_network
+  links:
+    - database
+  environment:
+    PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+    XDEBUG_CONFIG: "remote_host=host.docker.internal"
+    PHP_IDE_CONFIG: "serverName=Docker"
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost"]
+    interval: 1m30s
+    timeout: 10s
+    retries: 3
 
 services:
   assectra:
+    <<: *common-php
     build:
       context: ./bin/${PHPVERSION_ASSECTRA}
     container_name: "${COMPOSE_PROJECT_NAME}${PHPNAME_ASSECTRA}"
-    restart: unless-stopped
-    tty: true
-    networks:
-      - docker.network
     ports:
       - "${HOST_MACHINE_UNSECURE_HOST_PORT_ASSECTRA}:80"
       - "${HOST_MACHINE_SECURE_HOST_PORT_ASSECTRA}:443"
-    links:
-      - database
     volumes:
       - ${DOCUMENT_ROOT_ASSECTRA}:/var/www/webroot/ROOT/
-      - ${PHP_INI_ASSECTRA-./config/php/php.ini}:/usr/local/etc/php/php.ini
-      - ${VHOSTS_DIR_ASSECTRA-./config/vhosts}:/etc/apache2/sites-enabled
-      - ${LOG_DIR_ASSECTRA-./logs/apache2}:/var/log/apache2
-    environment:
-      PMA_PORT: ${HOST_MACHINE_PMA_PORT_ASSECTRA}
+      - ${PHP_INI_ASSECTRA:-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${VHOSTS_DIR_ASSECTRA:-./config/vhosts}:/etc/apache2/sites-enabled
+      - apache_logs_assectra:/var/log/apache2
 
   trader:
+    <<: *common-php
     build:
       context: ./bin/${PHPVERSION_TRADER}
     container_name: "${COMPOSE_PROJECT_NAME}${PHPNAME_TRADER}"
-    restart: unless-stopped
-    tty: true
-    networks:
-      - docker.network
     ports:
-      - "${HOST_MACHINE_UNSECURE_HOST_PORT_TRADER}:83"
-      - "${HOST_MACHINE_SECURE_HOST_PORT_TRADER}:446"
-    links:
-      - database
+      - "${HOST_MACHINE_UNSECURE_HOST_PORT_TRADER}:80"
+      - "${HOST_MACHINE_SECURE_HOST_PORT_TRADER}:444"
     volumes:
       - ${DOCUMENT_ROOT_TRADER}:/var/www/webroot/ROOT/
-      - ${PHP_INI_TRADER-./config/php/php.ini}:/usr/local/etc/php/php.ini
-      - ${VHOSTS_DIR_TRADER-./config/vhosts}:/etc/apache2/sites-enabled
-      - ${LOG_DIR_TRADER-./logs/apache2}:/var/log/apache2
-    environment:
-      PMA_PORT: ${HOST_MACHINE_PMA_PORT_TRADER}
+      - ${PHP_INI_TRADER:-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${VHOSTS_DIR_TRADER:-./config/vhosts}:/etc/apache2/sites-enabled
+      - apache_logs_trader:/var/log/apache2
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -57,7 +66,7 @@ services:
       PMA_PORT: "3306"
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     networks:
-      - docker.network
+      - docker_network
 
   database:
     build:
@@ -67,12 +76,17 @@ services:
     ports:
       - "127.0.0.1:${HOST_MACHINE_MYSQL_PORT}:3306"
     volumes:
-      - ${MYSQL_DATA_DIR-./data/mysql}:/var/lib/mysql
-      - ${MYSQL_LOG_DIR-./logs/mysql}:/var/log/mysql
+      - mysql_data:/var/lib/mysql
+      - mysql_logs:/var/log/mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     networks:
-      - docker.network
+      - docker_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
